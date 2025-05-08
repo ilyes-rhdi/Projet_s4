@@ -1,15 +1,16 @@
 package middleware
 
 import (
+	"Devenir_dev/internal/api/models"
 	"context"
 	"net/http"
+	"os"
 	"strings"
-	"Devenir_dev/internal/api/models"
-    "os"
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtKey = []byte(os.Getenv("JWT_SECRET_KEY")) 
+var jwtKey = []byte(os.Getenv("JWT_SECRET_KEY"))
 
 func JwtMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,21 +42,43 @@ func JwtMiddleware(next http.Handler) http.Handler {
 }
 
 func IsAdmin(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Récupère les claims depuis le contexte
-        claims, ok := r.Context().Value("user").(*models.Claims)
-        if !ok {
-            http.Error(w, "Erreur de récupération des claims", http.StatusInternalServerError)
-            return
-        }
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Récupère les claims depuis le contexte
+		claims, ok := r.Context().Value("user").(jwt.MapClaims)
+		if !ok {
+			http.Error(w, "Erreur de récupération des claims", http.StatusInternalServerError)
+			return
+		}
 
-        // Vérifie si l'utilisateur est un admin
-        if claims.Role != "admin" {
-            http.Error(w, "Accès refusé : Vous n'êtes pas autorisé", http.StatusForbidden)
-            return
-        }
+		// Vérifie si l'utilisateur est un admin
+		role, ok := claims["role"].(string)
+		if !ok || role != string(models.Admin) {
+			http.Error(w, "Accès refusé : Vous n'êtes pas autorisé", http.StatusForbidden)
+			return
+		}
 
-        // Si l'utilisateur est admin, appelle le handler suivant
-        next.ServeHTTP(w, r)
-    })
+		// Si l'utilisateur est admin, appelle le handler suivant
+		next.ServeHTTP(w, r)
+	})
+}
+
+func IsResponsable(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Récupère les claims depuis le contexte
+		claims, ok := r.Context().Value("user").(jwt.MapClaims)
+		if !ok {
+			http.Error(w, "Erreur de récupération des claims", http.StatusInternalServerError)
+			return
+		}
+
+		// Vérifie si l'utilisateur est un responsable
+		role, ok := claims["role"].(string)
+		if !ok || role != string(models.Responsable) {
+			http.Error(w, "Accès refusé : Vous n'êtes pas autorisé", http.StatusForbidden)
+			return
+		}
+
+		// Si l'utilisateur est responsable, appelle le handler suivant
+		next.ServeHTTP(w, r)
+	})
 }

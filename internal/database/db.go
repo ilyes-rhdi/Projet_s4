@@ -1,11 +1,12 @@
 package database
 
 import (
+	"Devenir_dev/internal/api/models"
 	"fmt"
 	"log"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"Devenir_dev/internal/api/models"
 )
 
 var DB *gorm.DB
@@ -26,6 +27,7 @@ func InitDB() {
 		&models.Niveau{},
 		&models.Voeux{},
 		&models.Speciality{},
+		&models.SavedOrganigram{},
 		// ajoute d'autres structs ici
 	)
 
