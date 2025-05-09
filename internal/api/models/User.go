@@ -3,9 +3,9 @@ package models
 type Role string
 
 const (
-    Admin      Role = "admin"
+    StaffAdmin      Role = "staff_admin"
     Professeur Role = "professeur"
-    Responsable Role = "responsable"
+    ChefDep Role = "chef_dep"
 )
 
 type User struct {
@@ -14,5 +14,5 @@ type User struct {
     Prenom   string `gorm:"not null"`
     Email    string `gorm:"unique;not null"`
     Password string `gorm:"not null"`
-    Role     Role   `gorm:"type:enum('admin','professeur','responsable');default:'professeur';not null"`
+    Role     Role   `gorm:"type:enum('staff_admin','professeur','chef_dep');default:'professeur';not null"`
 }

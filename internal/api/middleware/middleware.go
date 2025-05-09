@@ -59,3 +59,24 @@ func IsAdmin(next http.Handler) http.Handler {
         next.ServeHTTP(w, r)
     })
 }
+func RequireRole(role models.Role, permission string) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            // Retrieve the user's role from the context (assume it's injected by JWT middleware)
+            userRole, ok := r.Context().Value("role").(models.Role)
+            if !ok || userRole != role {
+                http.Error(w, "Forbidden: Insufficient permissions", http.StatusForbidden)
+                return
+            }
+
+            // Check if the role has the required permission
+            if !models.RolePermissions[userRole][permission] {
+                http.Error(w, "Forbidden: Permission denied", http.StatusForbidden)
+                return
+            }
+
+            // If all checks pass, proceed to the next handler
+            next.ServeHTTP(w, r)
+        })
+    }
+}

@@ -2,14 +2,15 @@ package utils
 
 import (
 	"Devenir_dev/internal/api/models"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"regexp"
 	"strings"
-	"fmt"
+
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type Pagedata struct {
@@ -19,7 +20,7 @@ type Pagedata struct {
 
 // Rendertemplates charge et affiche les templates
 func Rendertemplates(res http.ResponseWriter, tmpl string, data interface{}) {
-	t, err := template.ParseFiles("C:\\Users\\PC\\OneDrive\\Documents\\futur\\Devenir_dev\\templates\\" + tmpl + ".page.tmpl")
+	t, err := template.ParseFiles(fmt.Sprintf("./templates/%s.page.tmpl", tmpl))
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
@@ -86,7 +87,7 @@ func ValidateInput(user models.User) (bool, string) {
 }
 func sanitizeRole(role models.Role) models.Role {
 	switch role {
-	case models.Admin,models.Professeur, models.Responsable:
+	case models.StaffAdmin, models.Professeur, models.ChefDep:
 		return models.Role(role) // Rôle valide
 	default:
 		// Retourne un rôle par défaut si le rôle est invalide
@@ -113,3 +114,89 @@ func clean(s string, re *regexp.Regexp) string {
 func FormBool(r *http.Request, key string) bool {
 	return r.FormValue(key) == "on"
 }
+
+// FindTeacher searches for a teacher by ID in the given list of teachers
+func FindTeacher(teacherID int, teachers []models.Teacher) *models.Teacher {
+	for _, t := range teachers {
+		if teacherID >= 0 && t.ID == uint(teacherID) {
+			return &t
+		}
+	}
+	return nil
+}
+
+// FindModuleForTeacher finds an appropriate module for a teacher based on their wishes and availability
+func FindModuleForTeacher(teacherID int, slotType string, wishes []models.Voeux, available []models.Module, currentHours int) *models.Module {
+	// Try priorities 1 to 3
+	for prio := 1; prio <= 3; prio++ {
+		for _, wish := range wishes {
+			if teacherID >= 0 && wish.TeacherID == uint(teacherID) && wish.Priority == prio {
+				// Check if teacher wants this type of class
+				if (slotType == "cours" && wish.Cours) ||
+					(slotType == "td" && wish.Td) ||
+					(slotType == "tp" && wish.Tp) {
+					// Find the module in available modules
+					for _, module := range available {
+						if module.ID == wish.ModuleID {
+							hours := GetHoursForType(&module, slotType)
+							if hours > 0 && currentHours+hours <= 24 {
+								return &module
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// GetHoursForType returns the number of hours for a specific type of class in a module
+func GetHoursForType(module *models.Module, slotType string) int {
+	switch slotType {
+	case "cours":
+		return module.VolumeCours
+	case "td":
+		return module.VolumeTD
+	case "tp":
+		return module.VolumeTP
+	default:
+		return 0
+	}
+}
+
+// RemoveModule removes a module from the list of available modules
+func RemoveModule(moduleID int, modules []models.Module) []models.Module {
+	var result []models.Module
+	for _, m := range modules {
+		if m.ID != uint(moduleID) {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
+// ValidateTeacherInput validates the input for a Teacher struct
+func ValidateTeacherInput(teacher models.Teacher) (bool, string) {
+	// Check for empty fields
+	if teacher.Name == "" || teacher.SpecialtyID == 0 || teacher.MaxHours == 0 {
+		return false, "All fields (name, specialty ID, max hours) are required."
+	}
+
+	// Ensure max hours is a positive number
+	if teacher.MaxHours < 0 {
+		return false, "Max hours must be a positive number."
+	}
+
+	return true, ""
+}
+
+// SanitizeTeacherInput sanitizes the input for a Teacher struct
+func SanitizeTeacherInput(teacher *models.Teacher) {
+	re := regexp.MustCompile("<.*?>")
+
+	teacher.Name = clean(teacher.Name, re)
+	// No need to sanitize numeric fields like SpecialtyID, MaxHours, etc.
+}
+
+// SanitizeModuleInput sanitizes the input for a Module struct
